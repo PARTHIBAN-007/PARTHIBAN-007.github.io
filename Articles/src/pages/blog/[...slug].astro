@@ -1,0 +1,54 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Layout title={`${post.data.title} | Parthiban`} description={post.data.description}>
+  <header class="site-header">
+    <div class="container site-header-inner">
+      <a href="/" class="brand">
+        <span class="brand-mark"></span>
+        Parthiban
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="/">Home</a>
+        <a href="/#work">Work</a>
+        <a href="/blog">Articles</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="post-content">
+    <article class="article-shell article-body">
+      <header class="article-header">
+        <div class="meta">
+          <span>{post.data.category}</span>
+          <span>•</span>
+          <time>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</time>
+        </div>
+        <h1>{post.data.title}</h1>
+      </header>
+
+      <Content />
+    </article>
+  </main>
+
+  <footer class="page-footer">
+    <div class="container page-footer-inner">
+      <a href="/blog">← Back to articles</a>
+      <span>© 2026 Parthiban</span>
+    </div>
+  </footer>
+</Layout>

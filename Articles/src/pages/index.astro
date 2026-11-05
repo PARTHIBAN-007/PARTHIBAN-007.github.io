@@ -1,0 +1,188 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+
+const featuredPosts = posts.slice(0, 3);
+
+const capabilities = [
+  {
+    tag: 'Product',
+    title: 'Build useful systems',
+    description: 'Turn rough ideas into clear product decisions and practical execution.',
+  },
+  {
+    tag: 'Engineering',
+    title: 'Ship reliable software',
+    description: 'Write maintainable code and keep systems efficient, stable, and understandable.',
+  },
+  {
+    tag: 'Writing',
+    title: 'Explain technical work clearly',
+    description: 'Break down complex ideas into useful insights and documentation people can act on.',
+  },
+];
+
+const work = [
+  {
+    tag: 'Platform',
+    title: 'Operational systems that scale cleanly',
+    description: 'Focused on reliability, clarity, and systems that stay easy to manage as they grow.',
+    year: '2026',
+  },
+  {
+    tag: 'Product',
+    title: 'Better experiences for complex tooling',
+    description: 'Improved accessibility and usability for technical products without losing depth.',
+    year: '2025',
+  },
+  {
+    tag: 'Developer Experience',
+    title: 'Fewer friction points for teams',
+    description: 'Simplified workflows and clearer execution paths for faster day-to-day delivery.',
+    year: '2024',
+  },
+];
+---
+
+<Layout title="Parthiban | Portfolio & Blog" description="Professional portfolio and technical blog for engineering, systems thinking, and technical writing.">
+  <header class="site-header">
+    <div class="container site-header-inner">
+      <a href="/" class="brand">
+        <span class="brand-mark"></span>
+        Parthiban
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="#work">Work</a>
+        <a href="#capabilities">Capabilities</a>
+        <a href="/blog">Articles</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero section">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow">Portfolio</span>
+          <h1>Thoughtful software for real-world systems.</h1>
+          <p>
+            I design and build products that balance technical depth with operational simplicity—combining engineering rigor,
+            product clarity, and a strong bias toward sustainable execution.
+          </p>
+          <div class="hero-actions">
+            <a href="#work" class="primary-button">View work</a>
+            <a href="/blog" class="secondary-button">Read articles</a>
+          </div>
+        </div>
+
+        <aside class="hero-panel" aria-label="Profile summary">
+          <div class="card-tag">Current focus</div>
+          <h3>Systems, product thinking, and learning in public.</h3>
+          <div class="metric-grid">
+            <div class="metric">
+              <strong>6+</strong>
+              <span>Years building software and technical products</span>
+            </div>
+            <div class="metric">
+              <strong>25+</strong>
+              <span>Deep dives and engineering notes published</span>
+            </div>
+            <div class="metric">
+              <strong>3</strong>
+              <span>Core areas: product, platform, and technical writing</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="capabilities" class="section">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Capabilities</span>
+            <h2>Simple, practical, effective.</h2>
+          </div>
+          <p>
+            I focus on the work that helps products and systems move forward with less friction and more clarity.
+          </p>
+        </div>
+
+        <div class="card-grid">
+          {capabilities.map((item) => (
+            <article class="card">
+              <span class="card-tag">{item.tag}</span>
+              <h3>{item.title}</h3>
+              <p>{item.description}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="work" class="section">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Selected work</span>
+            <h2>Work that is useful and durable.</h2>
+          </div>
+          <p>
+            I value outcomes that are practical, maintainable, and built to last beyond the first release.
+          </p>
+        </div>
+
+        <div class="showcase-panel">
+          {work.map((project) => (
+            <div class="showcase-row" style="padding: 1.2rem 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
+              <div>
+                <div class="card-tag">{project.tag}</div>
+                <h3>{project.title}</h3>
+                <p>{project.description}</p>
+              </div>
+              <div class="date">{project.year}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Latest writing</span>
+            <h2>Notes from the engineering bench.</h2>
+          </div>
+          <p>
+            Clear explanations, technical observations, and deeper dives into systems that matter.
+          </p>
+        </div>
+
+        <div class="posts-grid">
+          {featuredPosts.map((post) => (
+            <article class="post-item">
+              <div class="date">{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+              <div class="card-tag">{post.data.category}</div>
+              <h3>
+                <a href={`/blog/${post.id.replace(/\.md$/, '')}`}>{post.data.title}</a>
+              </h3>
+              <p>{post.data.description}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <div class="container page-footer-inner">
+      <span>© 2026 Parthiban</span>
+      <a href="/blog">Explore all articles →</a>
+    </div>
+  </footer>
+</Layout>
