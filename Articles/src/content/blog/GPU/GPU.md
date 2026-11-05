@@ -5,7 +5,7 @@ date: 2026-11-05
 category: GPU
 ---
 
-# GPU
+# GPU 
 A GPU (Graphics Processing Unit) is a specialized parallel processing hardware designed to perform large amounts of computations simultaneously. It consists of multiple Streaming Multiprocessors (SMs) that execute thousands of threads in parallel, making it suitable for graphics rendering, AI/ML, and scientific computing.
 
 #### GPU vs CPU
@@ -447,13 +447,23 @@ NVIDIA has some new competitors in the GPU and AI accelerator space following th
 Despite the growing competition, NVIDIA continues to lead the market by a significant margin. Let's see how the competition evolves in the future.
 
 References:
+
 [https://www.baseten.co/inference-engineering/](https://www.baseten.co/inference-engineering/)
+
 [https://youtu.be/Nn5XlSwVlOw?si=ZDW8cg9XQUYtCw-u](https://youtu.be/Nn5XlSwVlOw?si=ZDW8cg9XQUYtCw-u)
+
 [Inside NVIDIA GPUs: Anatomy of high performance matmul kernels - Aleksa Gordić](https://www.aleksagordic.com/blog/matmul)
+
 [GPU Glossary](https://modal.com/gpu-glossary)
+
 [A Beginner's Guide to NVIDIA GPUs in 2025: Architecture & Components](https://www.cudocompute.com/blog/a-beginners-guide-to-nvidia-gpus)
+
 [NVIDIA GPUs for AI: Architecture and Scaling Explained](https://www.intoai.pub/p/what-every-ai-engineer-must-know-about-nvidia-gpus)
+
 [https://youtu.be/dEZP1qUNTOk?si=o88pvA2CAHeOljaY](https://youtu.be/dEZP1qUNTOk?si=o88pvA2CAHeOljaY)
+
 [Deep Dive Into Nvidia’s “Hopper” GPU Architecture](https://www.nextplatform.com/compute/2022/04/01/deep-dive-into-nvidias-hopper-gpu-architecture/1657433)
+
 [NVIDIA GPU Architecture Explained: A Guide for AI (2026) | GPU Glossary](https://www.aquanode.io/gpu-glossary/gpu-architecture)
+
 [NVLink vs PCIe: Do You Actually Need NVLink? (2026)](https://www.thundercompute.com/blog/what-is-nvlink)

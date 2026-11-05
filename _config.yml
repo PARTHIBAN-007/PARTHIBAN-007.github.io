@@ -1,0 +1,5 @@
+exclude:
+  - Articles/
+  - .github/
+  - .git/
+  - .gitignore
