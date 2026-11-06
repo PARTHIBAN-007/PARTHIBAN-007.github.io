@@ -12,43 +12,272 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content } = await render(post);
+const { Content, headings = [] } = await render(post);
+const posts = (await getCollection('blog')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const tocItems = headings.filter((heading) => heading.depth > 1 && heading.depth <= 4);
+const categoryPosts = posts.filter((item) => item.data.category === post.data.category);
+const currentTopicIndex = categoryPosts.findIndex((item) => item.id === post.id);
+const previousPost = currentTopicIndex > 0 ? categoryPosts[currentTopicIndex - 1] : null;
+const nextPost = currentTopicIndex < categoryPosts.length - 1 ? categoryPosts[currentTopicIndex + 1] : null;
+const currentPath = Astro.url.pathname;
+const isHome = currentPath === '/';
+const isArticles = currentPath.startsWith('/blog');
 ---
 
-<Layout title={`${post.data.title} | Parthiban`} description={post.data.description}>
+<Layout title={post.data.title} description={post.data.description}>
   <header class="site-header">
     <div class="container site-header-inner">
       <a href="/" class="brand">
         <span class="brand-mark"></span>
-        Parthiban
+        Articles
       </a>
       <nav class="nav" aria-label="Main navigation">
-        <a href="/">Home</a>
-        <a href="/#work">Work</a>
-        <a href="/blog">Articles</a>
+        <a href="/" class:list={{ 'nav-link': true, 'is-active': isHome }} aria-current={isHome ? 'page' : undefined}>Home</a>
+        <a href="/blog" class:list={{ 'nav-link': true, 'is-active': isArticles }} aria-current={isArticles ? 'page' : undefined}>Articles</a>
       </nav>
     </div>
   </header>
 
   <main class="post-content">
-    <article class="article-shell article-body">
-      <header class="article-header">
-        <div class="meta">
-          <span>{post.data.category}</span>
-          <span>•</span>
-          <time>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</time>
-        </div>
-        <h1>{post.data.title}</h1>
-      </header>
+    <div class="article-layout">
+      {tocItems.length > 0 && (
+        <aside class="toc-shell" aria-label="Article sections" tabindex="0">
+          <button class="toc-trigger" type="button" aria-expanded="false" aria-controls="toc-panel">
+            Contents
+          </button>
 
-      <Content />
-    </article>
+          <nav class="toc-panel" id="toc-panel" aria-label="Table of contents">
+            <div class="toc-header">
+              <span>Contents</span>
+            </div>
+            <ul class="toc-list">
+              {tocItems.map((heading) => (
+                <li class={`toc-item toc-depth-${heading.depth}`}>
+                  <a
+                    class="toc-link"
+                    href={`#${heading.slug}`}
+                    data-heading-id={heading.slug}
+                    title={heading.text}
+                    aria-label={`Jump to ${heading.text}`}
+                  >
+                    <span class="toc-link-text">{heading.text}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </aside>
+      )}
+
+      {categoryPosts.length > 1 && (
+        <aside class="category-sidebar" aria-label="Articles in this category">
+          <button class="category-toggle" type="button" aria-expanded="false" aria-controls="category-panel">
+            <span class="category-toggle-icon">☰</span>
+          </button>
+
+          <div class="category-panel" id="category-panel">
+            <div class="category-header">
+              <span class="category-header-label">{post.data.category}</span>
+            </div>
+
+            <ul class="category-list" aria-label="Articles in this category">
+              {categoryPosts.map((item) => (
+                <li>
+                  <a
+                    href={`/blog/${item.id.replace(/\.md$/, '')}`}
+                    class:list={{ 'is-current': item.id === post.id }}
+                    title={item.data.title}
+                    aria-label={`Open ${item.data.title}`}
+                  >
+                    <span>{item.data.title}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      )}
+
+      <article class="article-shell article-body">
+        <header class="article-header">
+          <div class="meta">
+            <span>{post.data.category}</span>
+            <span>•</span>
+            <time>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</time>
+          </div>
+          <h1>{post.data.title}</h1>
+        </header>
+
+        <Content />
+
+        {(previousPost || nextPost) && (
+          <nav class="article-nav" aria-label="Article navigation">
+            {previousPost ? (
+              <a href={`/blog/${previousPost.id.replace(/\.md$/, '')}`} class="article-nav-card article-nav-card--prev">
+                <span class="article-nav-label">Previous</span>
+                <strong>{previousPost.data.title}</strong>
+                <span class="article-nav-arrow" aria-hidden="true">←</span>
+              </a>
+            ) : (
+              <span class="article-nav-card article-nav-card--disabled article-nav-card--prev">
+                <span class="article-nav-label">Previous</span>
+                <strong>Start of series</strong>
+                <span class="article-nav-arrow" aria-hidden="true">←</span>
+              </span>
+            )}
+
+            {nextPost ? (
+              <a href={`/blog/${nextPost.id.replace(/\.md$/, '')}`} class="article-nav-card article-nav-card--next">
+                <span class="article-nav-label">Next</span>
+                <strong>{nextPost.data.title}</strong>
+                <span class="article-nav-arrow" aria-hidden="true">→</span>
+              </a>
+            ) : (
+              <span class="article-nav-card article-nav-card--disabled article-nav-card--next">
+                <span class="article-nav-label">Next</span>
+                <strong>End of series</strong>
+                <span class="article-nav-arrow" aria-hidden="true">→</span>
+              </span>
+            )}
+          </nav>
+        )}
+      </article>
+    </div>
   </main>
 
-  <footer class="page-footer">
-    <div class="container page-footer-inner">
-      <a href="/blog">← Back to articles</a>
-      <span>© 2026 Parthiban</span>
-    </div>
-  </footer>
+  <script>
+    const tocShell = document.querySelector('.toc-shell');
+    const tocTrigger = document.querySelector('.toc-trigger');
+    const tocLinks = Array.from(document.querySelectorAll('.toc-link'));
+    const tocList = document.querySelector('.toc-list');
+
+    if (tocShell && tocTrigger && tocLinks.length) {
+      const sections = tocLinks
+        .map((link) => {
+          const id = link.getAttribute('data-heading-id');
+          const target = id ? document.getElementById(id) : null;
+          return target ? { id, link, target } : null;
+        })
+        .filter(Boolean);
+
+      const setActiveLink = (id) => {
+        tocLinks.forEach((link) => {
+          const isActive = link.getAttribute('data-heading-id') === id;
+          link.classList.toggle('is-active', isActive);
+        });
+
+        const activeLink = tocLinks.find((link) => link.getAttribute('data-heading-id') === id);
+        if (activeLink && tocList) {
+          activeLink.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+      };
+
+      const handleScrollToSection = (event) => {
+        const link = event.currentTarget;
+        const id = link.getAttribute('data-heading-id');
+        const target = id ? document.getElementById(id) : null;
+
+        if (!target) return;
+
+        event.preventDefault();
+        tocShell.classList.remove('is-open');
+        tocTrigger.setAttribute('aria-expanded', 'false');
+
+        const targetRect = target.getBoundingClientRect();
+        const offsetTop = window.scrollY + targetRect.top - 100;
+        window.scrollTo({ top: offsetTop, behavior: 'smooth' });
+      };
+
+      tocLinks.forEach((link) => {
+        link.addEventListener('click', handleScrollToSection);
+      });
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+          if (visible.length > 0) {
+            setActiveLink(visible[0].target.id);
+          }
+        },
+        {
+          rootMargin: '-18% 0px -55% 0px',
+          threshold: [0, 0.2, 0.5, 1],
+        },
+      );
+
+      sections.forEach(({ target }) => observer.observe(target));
+
+      tocTrigger.addEventListener('click', () => {
+        const willOpen = !tocShell.classList.contains('is-open');
+        tocShell.classList.toggle('is-open', willOpen);
+        tocTrigger.setAttribute('aria-expanded', String(willOpen));
+      });
+
+      tocShell.addEventListener('mouseenter', () => {
+        tocShell.classList.add('is-open');
+        tocTrigger.setAttribute('aria-expanded', 'true');
+      });
+
+      tocShell.addEventListener('mouseleave', () => {
+        tocShell.classList.remove('is-open');
+        tocTrigger.setAttribute('aria-expanded', 'false');
+      });
+
+      document.addEventListener('click', (event) => {
+        const withinToc = tocShell.contains(event.target);
+        if (!withinToc) {
+          tocShell.classList.remove('is-open');
+          tocTrigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          tocShell.classList.remove('is-open');
+          tocTrigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      const initialActive = sections.find(({ target }) => {
+        const rect = target.getBoundingClientRect();
+        return rect.top <= window.innerHeight * 0.35 && rect.bottom >= 80;
+      });
+
+      if (initialActive) {
+        setActiveLink(initialActive.id);
+      }
+    }
+
+    const categorySidebar = document.querySelector('.category-sidebar');
+    const categoryToggle = document.querySelector('.category-toggle');
+
+    if (categorySidebar && categoryToggle) {
+      const setCategoryState = (isOpen) => {
+        categorySidebar.classList.toggle('is-open', isOpen);
+        categoryToggle.setAttribute('aria-expanded', String(isOpen));
+      };
+
+      categoryToggle.addEventListener('click', () => {
+        setCategoryState(!categorySidebar.classList.contains('is-open'));
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          setCategoryState(false);
+        }
+      });
+
+      const mediaQuery = window.matchMedia('(max-width: 980px)');
+      if (mediaQuery.matches) {
+        setCategoryState(false);
+      } else {
+        setCategoryState(true);
+      }
+    }
+  </script>
 </Layout>
