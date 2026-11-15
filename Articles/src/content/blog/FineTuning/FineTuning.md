@@ -4,11 +4,13 @@ description: FineTuning Mechanism
 date: 2026-11-08
 category: FineTuning
 ---
-
+Large language models are trained on the internet's raw data, but how do they respond in a clear, general tone without getting stuck on random web noise? And how do they bridge the gap from broad internet data to specialized domains and real-world tasks?  
+Beyond the massive models built by frontier labs, developers and organizations frequently need to adapt these systems for specific applications—such as building domain-specific assistants or optimizing models for targeted workflows.  
+Fine-tuning makes this customization possible. Let's explore its structured training stages, see how parameter-efficient methods and quantization reduce hardware barriers, and look at how models are shaped for specific execution.
+# FineTuning
 Fine-tuning is the process of taking a pre-trained Large Language Model—which already understands general language and patterns from a massive dataset—and performing additional training on a smaller, specialized dataset to adapt it for a specific task or domain. Think of it like a doctor who has completed general medical school (pre-training) and then undergoes a residency in cardiology (fine-tuning) to gain specialized expertise while retaining their foundational knowledge.
 
 # **Stages of LLM Training**
-
 **Pre-Training** → **Supervised Fine-Tuning (SFT)** → **RLHF**
 ![](Pasted%20image%2020261108201839.png)
 
@@ -88,7 +90,7 @@ A = \begin{bmatrix} 10 & 20 & 30 \\ 40 & 80 & 120 \\ 70 & 140 & 210 \end{bmatrix
 $$
 
 Here, the **Rank of Matrix A = 1**.  
-Why? Because Columns 2 and 3 are just multiples of Column 1: where $\text{Column 2} = \text{Column 1} \times 2$ ,$\text{Column 3} = \text{Column 1} \times 3$  
+Why? Because Columns 2 and 3 are just multiples of Column 1, where $\text{Column 2} = \text{Column 1} \times 2$ ,$\text{Column 3} = \text{Column 1} \times 3$  
 Since there is only one truly unique column, the rank is 1.  
 Now, consider **Matrix B**:
 
@@ -100,7 +102,7 @@ $$
 The **Rank of Matrix B = 3**.  
 In this case, no row or column can be derived from the others. Every single value adds unique information to the structure, making it "Full Rank."  
 **Why does Rank matter here?**  
-A $3 \times 3$ matrix consists of 9 elements. When a matrix has internal dependency (low rank), it means there is redundancy. Because of this redundancy, we can represent a large matrix using two smaller matrices. When these two are multiplied, they reconstruct the original dimensions with the exact same elements.  
+A $3 \times 3$ matrix consists of 9 elements. When a matrix has internal dependency (low rank), it means there is redundancy. Because of this redundancy, we can represent a large matrix using two smaller matrices. When these two are multiplied, they reconstruct the original dimensions with the exact same elements.   
 **Low-Rank Factorization of Matrix A**  
 Since Matrix A has a rank of 1, we can break it down into a $3 \times 1$ column vector and a $1 \times 3$ row vector:
 
@@ -112,8 +114,7 @@ $$
 By using this format, we only need to store **6 elements** (3 from each smaller matrix) instead of the original **9**. In the world of LoRA, this is how we update massive models with very little data.
 
 **From Adapters to LoRA**  
-Earlier "Adapter" methods added extra layers **sequentially** within the model architecture. This introduced two main problems:
-
+Earlier "Adapter" methods added extra layers **sequentially** within the model architecture. This introduced two main problems:  
 1. **Increased Latency:** Data had to pass through extra layers during inference.
 2. **Structural Changes:** The core architecture had to be modified.
 
@@ -151,15 +152,11 @@ $$
 W' = W + \Delta W = W + \frac{\alpha}{r}(A \times B)  
 $$
 
-**$W$**: The **Frozen weights**.
-
-**$A$ & $B$**: The **Trainable Adapters**.
-
-**$r$ (Rank)**: The **Size** of the adapters. Smaller $r$ = less memory; larger $r$ = more learning capacity.
-
-**$\alpha$ (Alpha)**: The **Strength**. It controls how much the adapters change the original model's behavior.
-
-**$\frac{\alpha}{r}$**: The **Scaling Factor**. It keeps the training stable, regardless of what rank ($r$) you choose.
+**$W$**: The **Frozen weights**.  
+**$A$ & $B$**: The **Trainable Adapters**.  
+**$r$ (Rank)**: The **Size** of the adapters. Smaller $r$ = less memory; larger $r$ = more learning capacity.  
+**$\alpha$ (Alpha)**: The **Strength**. It controls how much the adapters change the original model's behavior.  
+**$\frac{\alpha}{r}$**: The **Scaling Factor**. It keeps the training stable, regardless of what rank ($r$) you choose.  
 
 To ensure the model starts with the exact same output as the original frozen model, we use a **Random Gaussian initialization for A** and **Zero initialization for B**. This ensures that at the start of training, $\Delta W (B \times A)$ is zero.
 
@@ -177,12 +174,9 @@ Research Paper: [QLORA: Efﬁcient Finetuning of Quantized LLMs](https://arxiv.o
 QLoRA is a memory-optimized variant of LoRA (Low-Rank Adaptation) designed to significantly reduce the VRAM requirements for finetuning Large Language Models.
 
 #### Quantization
-
-Before explaining QLoRA, I would like to explain Quantization in brief.
-
-In neural networks the parameters of the model are mostly represented in float. By default, PyTorch stores weights in float32.
-
-IEEE 754 is the Technical Standard for Floating Point Arithmetic. It defines how computers represent and calculate fractions.
+Before explaining QLoRA, I would like to explain Quantization in brief.  
+In neural networks the parameters of the model are mostly represented in float. By default, PyTorch stores weights in float32.  
+IEEE 754 is the Technical Standard for Floating Point Arithmetic. It defines how computers represent and calculate fractions.  
 
 > Before this standard, every computer manufacturer (IBM, DEC, Intel) had their own way of doing math, meaning a program could give different results simply by being run on a different machine.
 
@@ -212,11 +206,11 @@ In practice, it rarely makes the model "worse" in a way that humans can easily d
 ![](Pasted%20image%2020261108202039.png)
 Reference :[Slava_web-designer - Pixabay](https://pixabay.com/users/slava_web-designer-39623293/?utm_source=link-attribution&utm_medium=referral&utm_campaign=image&utm_content=8668140)
 
-We all know that images are represented by pixels with RGB values. Different RGB compositions result in different colors.
+We all know that images are represented by pixels with RGB values. Different RGB compositions result in different colors.  
 
-**Original Image:** It is colorful, bright, and has smooth gradients.
-
+**Original Image:** It is colorful, bright, and has smooth gradients.  
 **Quantized Image:** It may lack the enriched color depth of the original, but it still clearly delivers the same content.  
+
 To fit massive models onto consumer-grade hardware, this tiny trade-off in "color" (precision) is a necessary and highly effective sacrifice for massive memory savings.
 
 > **Analogy:**  
@@ -225,21 +219,20 @@ To fit massive models onto consumer-grade hardware, this tiny trade-off in "colo
 
 #### Quantization Datatypes and its range
 
-|**Format**|**Bits**|**Exponent Bits**|**Min Positive (Normal)**|**Max Finite Value**|
-|---|---|---|---|---|
-|**Float64**|64|11|$2.2 \times 10^{-308}$|$1.8 \times 10^{308}$|
-|**Float32**|32|8|$1.18 \times 10^{-38}$|$3.4 \times 10^{38}$|
-|**BFloat16**|16|8|$1.18 \times 10^{-38}$|$3.4 \times 10^{38}$|
-|**Float16**|16|5|$6.1 \times 10^{-5}$|$65,504$|
-|**FP8 (E5M2)**|8|5|$6.1 \times 10^{-5}$|$57,344$|
-|**FP8 (E4M3)**|8|4|$0.0156$|$448$|
+| **Format**     | **Bits** | **Exponent Bits** | **Min Positive (Normal)** | **Max Finite Value**  |
+| -------------- | -------- | ----------------- | ------------------------- | --------------------- |
+| **Float64**    | 64       | 11                | $2.2 \times 10^{-308}$    | $1.8 \times 10^{308}$ |
+| **Float32**    | 32       | 8                 | $1.18 \times 10^{-38}$    | $3.4 \times 10^{38}$  |
+| **BFloat16**   | 16       | 8                 | $1.18 \times 10^{-38}$    | $3.4 \times 10^{38}$  |
+| **Float16**    | 16       | 5                 | $6.1 \times 10^{-5}$      | $65,504$              |
+| **FP8 (E5M2)** | 8        | 5                 | $6.1 \times 10^{-5}$      | $57,344$              |
+| **FP8 (E4M3)** | 8        | 4                 | $0.0156$                  | $448$                 |
 
 - **BFloat16 (Brain Float):** Google designed this specifically for AI. They took a Float32 and simply chopped off the end of the precision. Because it keeps all 8 exponent bits, it can handle the same massive numbers as FP32, which prevents models from "crashing" (overflowing) during training.
 - **Float16 (Half):** This was the old standard. It has more precision (better decimals) than BF16, but its range is tiny. It can't even represent a number larger than **65,504**. In deep learning, gradients often shoot past 65,000, causing FP16 models to fail where BF16 succeeds.
 
-If you want to deep dive into Quantization techniques and Math, I highly encourage you to check out [**Maarten Grootendorst](https://substack.com/@maartengrootendorst)’s blog on Quantization.**
+If you want to deep dive into Quantization techniques and Math, I highly encourage you to check out [**A Visual Guide to Quantization - by Maarten Grootendorst**](https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization)’s blog on Quantization.**
 
-Here is the Link: [A Visual Guide to Quantization - by Maarten Grootendorst](https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization)
 
 #### 4-bit Normal Float (NF4):
 
@@ -263,6 +256,8 @@ Paged Optimizers is a memory management trick. QLoRA uses the NVIDIA Unified Mem
 > 
 > - **LoRA** reduces the number of trainable parameters.
 > - **QLoRA** reduces the memory footprint of the frozen parameters.
+
+Moving a model from raw internet data to a specialized, reliable assistant requires more than just raw compute—it demands deliberate training stages, parameter efficiency, and smart compression. By leveraging fine-tuning, LoRA, and quantization, models can be successfully adapted for targeted workflows without requiring massive infrastructure, turning general-purpose intelligence into practical, domain-specific tools.
 
 # References (Resources):
 

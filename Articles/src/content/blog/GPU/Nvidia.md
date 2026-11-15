@@ -1,9 +1,25 @@
 ---
 title: NVIDIA GPUs
-description: Understanding high-performance matrix multiplication kernels
+description: Nvidia GPU Ecosystem
 date: 2026-11-05
 category: GPU
 ---
+NVIDIA GPUs power modern AI and HPC workflows. Let's look at the different kinds of GPU generations and how each generation is designed for seamless performance.
+# NVIDIA GPU Ecosystem
+
+NVIDIA plays a significant role in powering modern AI and HPC workloads. What types of GPUs does NVIDIA offer, how are they architected, and how have different GPU generations evolved to meet diverse computing needs?
+
+NVIDIA is one of the leading GPU manufacturers, with its GPUs widely adopted across the industry.
+
+Since introducing the GeForce 256 in 1999, recognized as the world's first GPU, NVIDIA has continuously evolved its GPU architecture to support graphics, AI, and high-performance computing workloads.
+
+NVIDIA has four major categories of GPUs for different purposes:  
+**Personal Computing (Gaming / Video Editing):** GeForce RTX / GTX  
+**Data Center GPUs:** Hopper / Blackwell Series  
+**Professional Visualization:** NVIDIA RTX Professional GPUs  
+**Embedded and Edge Computing:** NVIDIA Jetson  
+
+Let’s look at Data Center GPUs and its generations
 
 ## GPU Generations
 
