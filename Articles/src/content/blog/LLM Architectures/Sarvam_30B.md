@@ -1,7 +1,7 @@
 ---
 title: Sarvam 30B
 description: Technical Deep Dive on Sarvam 30B LLM Architecture.
-date: 2026-11-17
+date: 2026-11-21
 category: LLM Architectures
 ---
 Sarvam is building sovereign AI for India. In March 2026, Sarvam released the architectures and open weights of its Sarvam 30B and 105B models. Let's explore the Sarvam 30B architecture to understand how Sarvam designed each component and how its design differs from other LLM architectures.
@@ -522,8 +522,8 @@ SarvamCausalLM get the input tokens ids and then the embeddings
 rope will give the positional embedding(sin and cos) for the position and causal mask is a 2D tensor which is filled with negative inf on future positions which makes sure that the Attention Mechanism can only look at the previous tokens not the future tokens.
 The Input X along with positional_embedding and causal_mask is passed to the transformer block which process the x on multiple transformer blocks. After going through the transformer block it is then normalized using RMSNorm and the lm_head which projects the context vector to give the weights for each vector in the vocabulary and then predicts the next vector. The ARM(Auto Regressive Model) continues to predict the next tokens.
 
-For Complete Code, [AI-Architectures-Foundry](https://github.com/PARTHIBAN-007/AI-Architectures-Foundry/blob/main/Sarvam/sarvam_30B.py). 
-For Official Code and Documentation, [Sarvam's Hugging Face](https://huggingface.co/sarvamai/sarvam-30b/tree/main)
+For Complete Code, [AI-Architectures-Foundry](https://github.com/PARTHIBAN-007/AI-Architectures-Foundry/blob/main/Sarvam/sarvam_30B.py).  
+For Official Code and Documentation, [Sarvam's Hugging Face](https://huggingface.co/sarvamai/sarvam-30b/tree/main).
 
 Sarvam have done a great work on building the soverign LLM for India and I wish sarvam to be the frontier lab which represents india in the World Stage and hoping for more Open Source(Weight) Models from Sarvam.
 
@@ -532,7 +532,7 @@ References:
 2. [Vizuara Build LLM From Scratch](https://youtube.com/playlist?list=PLPTV0NXA_ZSgsLAr8YCgCwhPIJNNtexWu&si=aFUKl5Qr3Jvel7SH)
 3. [Vizuara Deepseek From Scratch](https://www.youtube.com/playlist?list=PLPTV0NXA_ZSiOpKKlHCyOq9lnp-dLvlms)
 4. [Maarten grootendorst Mixture of Experts](https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-mixture-of-experts)
-5. [RoPE](https://youtu.be/hCzJo4ui1P8?si=h8OO7ns_zs_JN8FF)
+5. [Zachary Huang RoPE](https://youtu.be/hCzJo4ui1P8?si=h8OO7ns_zs_JN8FF)
 
 
 
