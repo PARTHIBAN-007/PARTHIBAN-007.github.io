@@ -4,12 +4,13 @@ description: Technical Deep Dive on Sarvam 30B LLM Architecture.
 date: 2026-11-17
 category: LLM Architectures
 ---
-Sarvam is building the sovereign AI for India. Sarvam has been working on Building AI solutions for India and In India. Sarvam has released their LLM Architectures and Open Weights of Sarvam 30B and 105B on March 2026. Let's Explore the Sarvam 30B Architecture to know how sarvam designed each component and how it was different from the other LLM Architectures. 
+Sarvam is building sovereign AI for India. In March 2026, Sarvam released the architectures and open weights of its Sarvam 30B and 105B models. Let's explore the Sarvam 30B architecture to understand how Sarvam designed each component and how its design differs from other LLM architectures.
 
-I assume that you have a good knowledge on LLM Architectures and PyTorch basics(As i am gonna explain the implementation details in code). If you're not sure about the internals of LLM Architectures. I highly encourage you to checkout [LLM Architectures](https://parthiban-007.github.io/blog/#category-llm-architectures)
-where i have explained the Components of an LLM(Attention Mechanism, Mixture of Experts, Positional Encoding and Normalization).
+I assume you have a good understanding of LLM architectures and PyTorch basics, as I'm also going to explain the implementation details through code. If you're not familiar with the internals of LLM architectures, I highly encourage you to check out [LLM Architectures](https://parthiban-007.github.io/blog/#category-llm-architectures)}, where I've explained the core components of an LLM, including the Attention Mechanism, Mixture of Experts, Positional Encoding, and Normalization.
 
-This Blog is written based on the implementation details available on [Hugging Face Sarvam 30B](https://huggingface.co/sarvamai/sarvam-30b/blob/main/modeling_sarvam_moe.py). Original code is changed 
+This blog is based on the implementation details available in [Hugging Face – Sarvam 30B](https://huggingface.co/sarvamai/sarvam-30b/blob/main/modeling_sarvam_moe.py). I've simplified and modified the original code to make the concepts easier to understand.
+
+Feel free to skip the code sections if you're not interested in understanding the implementation details. I know there's only a niche audience interested in code-level implementations, but I highly encourage you to go through the code and its explanations to gain a deeper understanding of the architecture.
 
 # Sarvam 30B LLM Architecture
 Sarvam 30B Architecture uses Grouped Query Attention as it's attention mechanism to handle the KV cache and RoPE as positional encoding mechanism to inject the relative positional encoding in the Attention Mechanisms rather than using Absolute Positional Encodings. Mixture of Experts in the MLP Block with each expert designed for specific purpose than a general FFNN and importantly Sarvam Mixture of Experts uses Grouping Concept in Expert Selection.  
