@@ -63,6 +63,33 @@ function normalizeLink(raw, imageIndexRef, publicImages) {
   return `/${trimmed}`;
 }
 
+function normalizeMath(content) {
+  if (!content) return content;
+
+  // Remove trailing spaces on $$ lines to avoid unwanted markdown <br> injection
+  let result = content.replace(/^([ \t]*\$\$)[ \t]+$/gm, '$1');
+
+  // Preserve LaTeX row breaks `\\` through Markdown compilation
+  // In standard Markdown, `\\` becomes `\`. We escape `\\` to `\\\\` so the generated HTML retains `\\`.
+  const escapeLineBreaks = (tex) => {
+    return tex
+      .replace(/\\degree\b/g, '^\\circ')
+      .replace(/(?<!\\)\\\\(?!\\)/g, '\\\\\\\\');
+  };
+
+  // Display math: $$ ... $$
+  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (match, inner) => {
+    return `$$${escapeLineBreaks(inner)}$$`;
+  });
+
+  // Inline math: $ ... $
+  result = result.replace(/(^|[^\\])\$([^\$\n]+?)\$/g, (match, prefix, inner) => {
+    return `${prefix}$${escapeLineBreaks(inner)}$`;
+  });
+
+  return result;
+}
+
 function copyMarkdownForBuild() {
   if (fs.existsSync(generatedRoot)) {
     fs.rmSync(generatedRoot, { recursive: true, force: true });
@@ -90,6 +117,8 @@ function copyMarkdownForBuild() {
           const normalized = normalizeLink(url, imageIndexRef, publicImages);
           return match.replace(url, normalized);
         });
+
+        updated = normalizeMath(updated);
 
         fs.writeFileSync(targetPath, updated, 'utf8');
       }

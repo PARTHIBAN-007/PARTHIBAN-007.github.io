@@ -6,43 +6,53 @@ category: LLM Architectures
 ---
 Sarvam is building sovereign AI for India. In March 2026, Sarvam released the architectures and open weights of its Sarvam 30B and 105B models. Let's explore the Sarvam 30B architecture to understand how Sarvam designed each component and how its design differs from other LLM architectures.
 
-I assume you have a good understanding of LLM architectures and PyTorch basics, as I'm also going to explain the implementation details through code. If you're not familiar with the internals of LLM architectures, I highly encourage you to check out [LLM Architectures](https://parthiban-007.github.io/blog/#category-llm-architectures)}, where I've explained the core components of an LLM, including the Attention Mechanism, Mixture of Experts, Positional Encoding, and Normalization.
+I assume you have a good understanding of LLM architectures and PyTorch basics, as I'm also going to explain the implementation details through code. If you're not familiar with the internals of LLM architectures, I highly encourage you to check out [LLM Architectures](https://parthiban-007.github.io/blog/#category-llm-architectures), where I've explained the core components of an LLM, including the Attention Mechanism, Mixture of Experts, Positional Encoding, and Normalization.
 
 This blog is based on the implementation details available in [Hugging Face – Sarvam 30B](https://huggingface.co/sarvamai/sarvam-30b/blob/main/modeling_sarvam_moe.py). I've simplified and modified the original code to make the concepts easier to understand.
 
 Feel free to skip the code sections if you're not interested in understanding the implementation details. I know there's only a niche audience interested in code-level implementations, but I highly encourage you to go through the code and its explanations to gain a deeper understanding of the architecture.
 
 # Sarvam 30B LLM Architecture
-Sarvam 30B Architecture uses Grouped Query Attention as it's attention mechanism to handle the KV cache and RoPE as positional encoding mechanism to inject the relative positional encoding in the Attention Mechanisms rather than using Absolute Positional Encodings. Mixture of Experts in the MLP Block with each expert designed for specific purpose than a general FFNN and importantly Sarvam Mixture of Experts uses Grouping Concept in Expert Selection.  
-Sarvam 30B Architecture's each component has many advancement from the 2017 Transformer Architecture and the 2018 GPT 1 Architecture. In the recent days these are the advanced and the most common architectures used in the Open Source LLMs such as Gemma 3, GPT Oss.
-let's see each component in detail.
+Sarvam 30B Architecture uses Grouped Query Attention as its attention mechanism to handle the KV cache, and RoPE as a positional encoding mechanism to inject relative positional information into the attention layers rather than using absolute positional encodings. It uses a Mixture of Experts in the MLP block, with each expert designed for a specific purpose rather than acting as a general FFNN—and, importantly, Sarvam's Mixture of Experts uses a grouping concept in expert selection.
+
+Each component of the Sarvam 30B architecture shows many advancements over the 2017 Transformer architecture and the 2018 GPT-1 architecture. In recent days, these have become advanced and common architectures used in open-source LLMs such as Gemma 3 and GPT-OSS. Let’s see each component in detail.
 ![](Pasted%20image%2020261117084518.png)
 
 ## Grouped Query Attention
-Traditional Multi head Attention have a compute bottleneck which was handled by the KV cache, but KV Cache comes up with a storage tradeoff. To have a balance between MHA Performance and with lesser KV Cache Storage , mechanisms like MQA, GQA and MLA are introduced. Sarvam utilizes Grouped Query Attention to balance the Performance and Efficient Storage. Grouped Query Attention has been a more reliable architecture in the modern LLM's especially for the 7B,14B, 30B Models.Sarvam 105B LLM uses MLA.
+During inference, autoregressive generation repeats key and value calculations for previous tokens in MHA, so **KV caching** was introduced to store the Keys and Values of each head. However, caching every head's Keys and Values requires huge memory storage. Attention mechanisms like MQA, GQA, and MLA were introduced to balance higher performance with lower storage.
 
-Let's Focus on Grouped Query Attention.
-KV cache found the repeated calculation steps(In Inference) in  MHA and comes up with an idea to cache the Keys and Value of each heads. Caching Each heads' key and Value increases the storage. Grouped Query Attention is proposed to have a group where each head in a group shares the same key and value so it introduces a balance of performance and efficient storage. Where MHA uses different keys and values for each heads which offers higher performance, MQA uses same keys and values for all heads which offers efficient storage.  
-let's look at the following to understand the GQA that heads in a same group has a same key($w_k$) and same value($w_v$) and different keys and values with the other group heads. Query's are different across heads irrespective of groups
+MHA uses separate Keys and Values for each head, which increases the KV cache size. GQA reduces the number of unique Keys and Values compared to MHA by sharing the same Key and Value heads across a group of Query heads. Having multiple groups preserves model performance, while sharing Keys and Values within each group lowers storage. Keeping distinct Queries across all heads—irrespective of groups—further helps maintain strong performance, ultimately shrinking the KV cache without sacrificing much quality.  
+
+Let's look at the following image to understand GQA: heads within the same group share a single Key head and Value head (and their corresponding $W_k, W_v$ projections), while different groups use different Key and Value heads, and Queries remain unique across every head.
 ![](Pasted%20image%2020261121104205.png)
 
 > X $(batch \space size, sequence \space length , d_{model})$ -> X$(num \space tokens, d_{model})$
-> Let's ignore the batch dimension of x for now for easier illustration, where the actual computation techniques along with dimension broadcasting are explained clearly in the code section. 
+> Let's ignore the batch dimension of $X$ for now for easier illustration, where the actual computation techniques along with dimension broadcasting are explained clearly in the code section.
 
-X $(num \space tokens, d_{model})$ passes through the $(w_q,w_k,w_v)$  different heads of different groups which then produces Queries, keys and values. The dimension of each head's $(w_q,w_k,w_v)$  is $(d_{model}, head \space dim)$ where the $head \space dim$ is defined by $(\frac{d_{model}}{No \space of \space heads})$ and the dimension of query, key and value of each heads are $(num \space tokens , head \space dim)$
+X $(num \space tokens, d_{model})$ passes through the projection weights$(w_q,w_k,w_v)$ across heads and groups to produce Queries, keys and values. The dimension of each head's $(w_q,w_k,w_v)$  is $(d_{model}, head \space dim)$, where the $head \space dim = \frac{d_{model}}{No \space of \space heads}$ and the dimension of resulting query, key and value of each heads are $(num \space tokens , head \space dim)$
 
-Grouped Query Attention differs from MHA only from the heads initialization and after that it follows the MHA for the computation of Attention Scores, Attention weights and context vector. 
+Grouped Query Attention differs from MHA mainly in how the heads (and shared KV groups) are set up; after that, it follows MHA's steps to compute attention scores, attention weights, and the context vector.
 ![](Pasted%20image%2020261121102945.png)
-Queries $(num \space tokens , head \space dim)$ are multiplied with the transpose of keys $(head \space dim, num \space tokens)$ which produces an attention scores$(num \space tokens, num \space tokens)$ which is then masked using attention mask and scaled by $\frac{1}{\sqrt{head \space dim}}$ of each head and softmax is applied to convert the weights into probabilities which forms the attention weights
+Query represents a set of questions a token asks to learn about other tokens. To answer the Query, Keys provide simple identifying knowledge about each token. Based on the relevance between the question (Query) and the answer (Key), a proportional amount of each token's Value is combined to provide a context-aware representation.
+
+Attention scores, the relevance between tokens are computed by multiplying the Queries $(num \space tokens , head \space dim)$ with the transpose of keys $(head \space dim, num \space tokens)$. Attention scores$(num \space tokens, num \space tokens)$ represent the dot product of each token to other tokens in the sequence. In the attention scores token 10 can attend to all other tokens in the sequence till n but intuitively the token 10 should have attend to tokens before it not after it. ARM LLM's process tokens in left to right like we read we don't look at future tokens. so for each token it can only attend to tokens which are before it and not after it by using attention masks which has -inifity values for future token i+1 ,... n for token i. Attention scores are  by $\frac{1}{\sqrt{head \space dim}}$ of each head to handle the variance of the weights. Attention scores values are not bounded by any range which makes it hard to represent the relation softmax is applied to convert the weights into probabilities which explains how does each token is important shares relation with the other token.
+
+
+Attention scores represents the relevance between tokens which are computed by multiplying the Queries $(\text{num\_tokens}, \text{head\_dim})$ with the transpose of the Keys $(\text{head\_dim}, \text{num\_tokens})$. The resulting attention score matrix $(\text{num\_tokens}, \text{num\_tokens})$ represents the dot product of each token with every other token in the sequence, and these scores are scaled by $\frac{1}{\sqrt{\text{head\_dim}}}$ to keep the variance of the dot products stable.
+
+In this matrix, token 10 can still attend to all tokens in the sequence up to $n$, whereas it should only attend to itself and the tokens before it, not after it. Autoregressive (ARM) LLMs process tokens from left to right just like how we read, without looking ahead at future words. Therefore, each token $i$ is restricted to attending only to tokens at positions $\le i$ by applying a causal attention mask, which sets future positions ($i+1, \dots, n$) to $-\infty$.
+
+Attention scores are unbounded and hard to interpret directly, **softmax** is applied to convert them into attention weights $(\text{num\_tokens}, \text{num\_tokens})$. Softmax expresses each token's attention in terms of probabilities, ensuring that all attention weights for a token sum up to $1$ and clearly show how strongly it relates to the other tokens.
 ![](Pasted%20image%2020261121103134.png)
 
-Attention weights $(num \space tokens, num \space tokens)$ are multiplied with the value $(num \space tokens , head \space dim)$ to produce context vector $(num \space tokens, head \space dim)$. Context vectors of different heads are concatenated together which brings back the multiple heads to a single head of $(num \space tokens, d_{model})$. 
+Now the attention weights $(\text{num\_tokens}, \text{num\_tokens})$ represent the relevance between tokens, they are multiplied by the Value matrix $(\text{num\_tokens}, \text{head\_dim})$ to capture a proportional amount of information from each token, generating each head's context vector $(\text{num\_tokens}, \text{head\_dim})$. The context vectors from all heads are then concatenated together, combining them back into a single tensor $(\text{num\_tokens}, d_{\text{model}})$.
 
-Multiple Heads are used to extract different perspectives but those perspectives has to be shared with each other to get a better understanding. Players in a same team not only has to play their game better but also needs to understand the situation, communicate with the other players to contribute to the team. So perspectives has to be shared.
-Concatenation doesn't share the perspectives it only put the perspectives in a single place. To share perspectives of each heads the context vector passes through a $W_o$ $(d_{model},d_{model})$ and produces the final context vector$(num\space tokens, d_{model})$.
+Multiple heads are used to extract different perspectives, but those perspectives must be shared with each other to form a complete understanding. Just like players on the same team not only have to play their own game well, but also need to read the situation and communicate with teammates to contribute to the team, the different head perspectives must interact. Concatenation alone does not share these perspectives—it merely places them side by side in a single tensor. To blend and share the insights across all heads, the concatenated context vector passes through an output projection matrix $W_o$ $(d_{\text{model}}, d_{\text{model}})$, producing the final context vector $(\text{num\_tokens}, d_{\text{model}})$.
 
+Grouped Query Attention (GQA) has become a reliable standard in modern LLMs—especially across 7B, 14B, and 30B scale models. For instance, Sarvam uses GQA for its 30B model while moving to Multi-Head Latent Attention (MLA) for its larger Sarvam 105B model.
 ### Code
 Let's see the implementation details of GQA in PyTorch. 
+
 ```python
 def repeat_kv(x,num_kv_groups):
     batch_size, num_heads , seq_len , head_dim = x.shape
@@ -80,7 +90,7 @@ class SarvamGroupedQueryAttention(nn.Module):
             query = self.query_rms_norm(query)
             key = self.key_rms_norm(key)
         sin, cos = position_embeddings
-        query,key = apply_rope_embedding(query,key,cos,sin)
+        query,key = apply_rope_embedding(query,key,sin,cos)
         key = repeat_kv(key,self.num_kv_groups)
         value = repeat_kv(value,self.num_kv_groups)
         attn_scores = query @ key.transpose(-1,-2)  / math.sqrt(self.head_dim)
@@ -96,12 +106,12 @@ class SarvamGroupedQueryAttention(nn.Module):
 > Have a pen and paper to effectively understand the implementation of GQA.
 
 SarvamGroupedQueryAttention class is defined for the GQA where it initializes 
-num_attention_heads - No of Heads in the Attention Mechanism  
-num_key_value_heads - No of Key Value Heads  / No of Groups
-head_dim - Dimension of each head and it is computed by $\frac{d_{model}}{No \space of \space Heads}$  
-num_kv_groups - No of Heads in a group and it is computed by $\frac{No\space of\space Heads}{No\space of\space key\space Value\space Heads}$  
-qk_norm - RMS Norm for Query and Key Vectors  
-rope - Rotary Positional Encoding which is applied in the attention mechanism rather than adding in the input tokens like Sinusoidal Encoding.  
+`num_attention_heads` - No of Heads in the Attention Mechanism  
+`num_key_value_heads` - No of Key Value Heads  / No of Groups  
+`head_dim` - Dimension of each head and it is computed by $\frac{d_{model}}{No \space of \space Heads}$  
+`num_kv_groups` - No of Heads in a group and it is computed by $\frac{No\space of\space Heads}{No\space of\space key\space Value\space Heads}$  
+`qk_norm` - RMS Norm for Query and Key Vectors  
+`rope` - Rotary Positional Encoding which is applied in the attention mechanism rather than adding in the input tokens like Sinusoidal Encoding.  
 
 let's use some math to understand the configuration of GQA.
 
@@ -110,24 +120,24 @@ num_attention_heads: int = 64
 num_key_value_heads: int = 4
 ```
 It means that there are 64 heads in the attention block and 4 groups. so each group contains 64/4 = 16 heads.  
-No of Unique $(w_q,w_k,w_v)$ are $(64,4,4)$ .   
-Each Groups's 16 heads will have the same key and value.
+No of Unique $(w_q,w_k,w_v)$ in the attention block are $(64,4,4)$ .   
+All 16 heads in the same group will have the same key and value.
 
-w_q, w_k, w_v are initialized as a single layer with the configuration of $(d_{model}, (num \space attention\space heads + 2 * key\space value\space heads ) * head\space dim )$
-num_attention_heads refers to the no of queries , 2 * key_value_heads refers to sum of no of key heads and no of value heads and multipled by head_dim. The First no of queries * head_dim is the w_q and the next section of no_of_key_value_groups is the w_k and the remaining is the w_v
+w_q, w_k, w_v are initialized as a single layer with the configuration of $(d_{model}, (num \space attention\space heads + 2 * key\space value\space heads ) * head\space dim )$,
+num_attention_heads refers to the no of queries , 2 * key_value_heads refers to sum of no of uniue key heads and no of unique value heads and multipled by head_dim. The First num_attention_heads * head_dim is the w_q and the next section of no_of_key_value_groups is the w_k and the remaining is the w_v
 
 $w_o$ is initialized as dense layer of $(d_{model},d_{model})$ and dropout is used to make sure all the weights of the model are contributing to the model's performance instead of putting all the workload on some parameters.
 
 As $w_q,w_k,w_v$ are initialized as a single layer, the x is passed to that layer to get the qkv$(num \space tokens,(num \space attention\space heads + 2 * key\space value\space heads ) * head\space dim) )$,
-which is then reshaped for splitting the heads as $(batch\space size, sequence \space length ,num \space attention\space heads + 2 * key\space value\space heads , head\space dim )$.  
+which is then reshaped to split the heads as $(batch\space size, sequence \space length ,num \space attention\space heads + 2 * key\space value\space heads , head\space dim )$.  
 
-The qkv are arranged as a single layer it can split in the 2nd index(head index) into get individual query, key and value based on the head configuration. The first num_attention_heads for query and the next kv_heads are for key and the remaining is for value. 
+The qkv are arranged as a single dimension. It can split in the 2nd index(head index) into get individual query, key and value based on the head configuration. The first num_attention_heads for query and the next kv_heads are for key and the remaining is for value. 
 
 The heads are considered within a sequence. let's change the dimension to represent the sequence from the head's perspective to perform attention computation  on individual heads.  
 Let's take an example,    
 Sequence 0 - Head 0 , Head 1, Head 2, Head 3  
 Sequence  1  - Head 0 , Head 1, Head 2, Head 3  
-it has to changed as,  
+it has to change as,  
 Head 0 - Sequence 0, Sequence 1  
 Head 1 - Sequence 0, Sequence 1  
 Head 2 - Sequence 0, Sequence 1  
@@ -135,7 +145,7 @@ Head 3 - Sequence 0, Sequence 1
 
 Now the query, key and value transpose their 1st and 2nd index to make the heads contains sequence.
 
-RopE is gonna applied on Query and key to inject relative distance information. Before applying rope, the Query and key vectors are normalized using RMSNorm and then the Positional Encoding is applied which makes sure to inject the relative positions of vectors through rotations. 
+RopE is gonna applied on Query and key to inject relative position information. Before applying rope, the Query and key vectors are normalized using RMSNorm and then the Positional Encoding is applied which injects the relative positions information of vectors through rotations. 
 
 > Purpose and Implementation of RoPE is clearly explained  in the following section. So For now, assume that it injects Relative distance between tokens.
 
@@ -152,40 +162,59 @@ now let's get back to original shape of the x,
 (batch_size, seq_len, num_heads,head_dim) -> (batch_size, seq_len, d_model).  
 Now all undo operrations are perfomed. Now we have the context vector which contains the perspectives of all the heads. Now , pass the context vector to the dense layer$(W_o)$ to share the perspectives of the all the heads. The Grouped Query Attention is computed efficiently.
 ## RoPE
-RoPE(Rotary Positional Encoding) injects relative position rather than the absolute positional encodings. Sinusoidal Positional Encodings injects the absolute positional encodings.
-let's take a example.  
-Ex: There is a red car.  
-A Red car  
-A + "pos_2" , Red + "Pos_3", car + "Pos_4"  
-A + "Pos_0" , "Red" + "Pos_1", car + "Pos_2".  
 
-Even though the relative distance between red and car is same between both the sentence but their positional embeddings are not same. To Fix this, relative position is encoded.
+RoPE (Rotary Positional Encoding) injects relative position rather than absolute positional encodings, whereas Sinusoidal Positional Encodings inject absolute positional encodings.
 
-Rotary Positional encoding only changes the direction but doesn't change the magnitude.
-Euler's Rotation:
-$$  
-R(θ) = \begin{bmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{bmatrix}  
-$$
-Where $\theta_i$,
-$$
+Let's take an example:  
+**Ex:** "There is a red car." vs. "A red car"
+- `"A" + "pos_2"`, `"Red" + "pos_3"`, `"car" + "pos_4"`
+- `"A" + "pos_0"`, `"Red" + "pos_1"`, `"car" + "pos_2"`
 
-\theta_i = \frac{1}{10000^{\frac{2i}{d_{\text{model}}}}}
+Even though the relative distance between `"Red"` and `"car"` is the same in both sentences, their absolute positional embeddings are not the same. To fix this, relative position is encoded.
 
+Rotary Positional Encoding only changes the direction of the vector and does not change its magnitude.
+
+Euler's rotation matrix for an angle $\theta$:
+
+$$ 
+R(\theta) = \begin{bmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{bmatrix}
 $$
 
-In RoPE, two indices of the vector are token and rotated using euler's formula and the vector x , y is multiplied with $R(\theta)$  to get x' and y'.
+Where $\theta_i$ is:
 
-Note: x and y are not two different vectors it is the consecutive set of indices of a same vector. It is one of the pair of the vector. Likewise all the pairs of the vector are taken and rotation is calculated using euler's rotation formula 
+$$
+\theta_i = \frac{1}{10000^{\frac{2i}{d_{\text{head}}}}}
+$$
 
-![](Pasted%20image%2020261108202248.png)
+In this formula, `base` is $10000$, and $d_{\text{head}}$ (`head_dim`) is used instead of $d_{\text{model}}$ because RoPE is applied across heads on queries and keys rather than on token embeddings, where $d_{\text{model}}$ is used.
 
-x' = x cos$\theta$ - y sin$\theta$   
-y' = ysin$\theta$  + ycos$\theta$ 
+In RoPE, two indices of the vector are taken and rotated using Euler's formula, and the pair $(x, y)$ is multiplied with $R(\theta)$ to get $x'$ and $y'$.
 
-it can be represented as (x y)cos$\theta$  + (-y x)sin$\theta$ 
-x is directly multiplied with cos$\theta$ 
-x is cut into half and rotate the halves and add a negative sign and then multiply with sin$\theta$ 
-Both cos and sin computation are added together to inject relative positional encoding
+>**Note:** $x$ and $y$ are not two separate vectors; they are a pair of values from the same vector. The same rotation applies to every pair in the vector.
+
+Expanding the rotation gives:
+$$
+x' = x \cos\theta - y \sin\theta
+$$
+
+$$
+y' = x \sin\theta + y \cos\theta
+$$
+
+The individual $x$ and $y$ pair is represented in a different structure when expanded into component equations, whereas in vector form it has both $x$ and $y$ together in one vector ($\mathbf{x}$), written as:
+
+$$
+\mathbf{x}' = \mathbf{x} \odot \cos\theta + \text{rotate}(\mathbf{x}) \odot \sin\theta
+$$
+
+Here, $\mathbf{x}$ is multiplied with $\cos\theta$, and the rotated counterpart with the sign flip is multiplied with $\sin\theta$. Both the $\cos$ and $\sin$ computations are added together to inject relative positional information.
+
+While classical RoPE pairs adjacent elements along the dimension, this implementation moves from adjacent pairs to splitting the vector into two halves (`x1` and `x2` along the last dimension) and pairing corresponding positions across the halves. Splitting into halves aligns cleanly with contiguous tensor slicing and vectorized operations in modern transformer implementations.
+
+For `sin` and `cos`, the position-frequency angles are computed for half the head dimension and concatenated across the two halves so both halves receive the matching `cos` and `sin` values for rotation.
+
+> Sarvam's codebase and documentation include support for partial RoPE (where only a portion of the head dimension is rotated), but Sarvam 30B does not utilize partial RoPE—so it is ignored here for simplicity.
+
 ### Code
 ```python
 class SarvamRotaryPositionalEmbedding(nn.Module):
@@ -217,38 +246,37 @@ def rotate_half(x):
     return torch.cat((-x2,x1),dim=-1)
 
   
-def apply_rope_embedding(q,k,cos,sin):
-    cos = cos[None,None,:,:] #(seq_len,d_model) -> #(1,seq_len,1,d_model)
+def apply_rope_embedding(q,k,sin,cos):
+    cos = cos[None,None,:,:] #(seq_len,head_dim) -> #(1,1,seq_len,head_dim)
     sin = sin[None,None,:,:]
     q_embed = q * cos + rotate_half(q) * sin
     k_embed = k * cos + rotate_half(k) * sin
     return q_embed , k_embed
 ```
 
-head_dim - Instead of $d_{model}$ RoPE uses head_dim as base because it is applied to each head's query and key.
-base - base of the theta's power.(10000)
-inv_freq - computes the $\frac{1}{\theta ^ {\frac{2i}{head \space dim}}}$ . torch.arange gives the value of 0 to head_dim with 2 steps. It ignores the sequence because the sin is applied on even position and cos on odd position for the set of 2 indices. For a pair one value is enough.
-positions is the context length of the LLM defined by max_seq_len and it is stored in buffer.
-positions and inv_freq are multiplied together to form the frequencies. which is the concatenated for both even and odd indices. sin and cos of freqs are generated for the position.
+`head_dim` sets the size of each attention head, and `base` sets the rotation speed scale (`10000`), saved on the module along with `inv_freq` (the rotation rates for each pair) and `positions` (the token positions up to `max_seq_len`). Both `inv_freq` and `positions` are stored as non-persistent buffers (`self.register_buffer(..., persistent=False)`) so they stay with the module without being saved as model parameters.
 
-apply_rotary_embedding applies the rotation of queries and key matrix using the sin and cosine values. sin and cos values are elongated for pytorch broadcasting. rotate_half function get the vector and split it into two half based on the last dimension(head_dim) and project the second at the first place and the first half at the second half place by concatenation and add negative sign to represent the formula.
+`freqs` combines the position indices with `inv_freq` to get the rotation angle for each position, and `emb` joins two copies of `freqs` together so both halves have matching angles. `cos` and `sin` convert those angles into cosine and sine values in the input tensor's data type and return `sin, cos`.
 
-Now the x is multiplied with cos$\theta$ and the rotated half is multipled with sin$\theta$. Now Both Query and key's have relative positional information which is considered in the attention mechanism to give the relative importance.
+`rotate_half` splits the last dimension into two halves and swaps them with a minus sign on the second half so the rotation formula can be applied cleanly. `apply_rope_embedding` reshapes `cos` and `sin` to match `q` and `k`, then combines them with `q`, `k`, and `rotate_half` to add positional information.
 
 ## RMS Norm
+Normalization is performed to stabilize activations (Hidden States) that might suffer from vanishing or exploding gradients. RMSNorm is used as the normalization technique in Sarvam 30B, offering a compute- and memory-efficient approach over LayerNorm.
 
-Normalization is performed to stabilize the weights which might be suffer from Vanishing or Exploding Gradients. RMS Norm is used as normalization in Sarvam 30B. It is compute and memory efficient Normalization technique.
+$$
+\text{RMS}(x) = \sqrt{\frac{1}{n}\sum_{i=1}^{n} x_i^2 + \epsilon}
+$$  
 
-$$ RMS(x) = \frac {1} {\sqrt{\frac{1}{n} \sum_{i=1}^{n} x^2 + \epsilon}}$$
+$$
+\text{RMSNorm}(x) = \frac{x}{\text{RMS}(x)} \odot w
+$$
 
 
-$$RMSNorm(x) = x * RMS(x) * w $$
+$w$ — Learnable weights  
+$\epsilon$ — Epsilon  
 
-$w$ - Learnable weights  
-$\epsilon$ - Epsilon
+In the RMS calculation, the mean of the squares of $x$ is summed with $\epsilon$ (to prevent division-by-zero errors), and the square root is taken in the denominator. The input $x$ is divided by this value and multiplied by the learnable weights $w$. RMSNorm scales $x$ consistently, leading to stable and faster training.
 
-In the RMS Calculation the mean of the squares of x is summed up with epsilon(To Handle Division by Zero Error) is Root Squared in the denominator which is then multiplied with the input x and learnable weights x. RMS Scales the x and leads to stable and faster training.
-### Code
 ```python
 class RMSNorm(nn.Module):
     def __init__(self,d_model, epsilon = 1e-20):
@@ -257,43 +285,40 @@ class RMSNorm(nn.Module):
         self.weights = nn.Parameter(torch.ones(d_model))
 
     def forward(self,x):
-        variance = x.pow(2).mean(dim= - 1, keepdims =True)
-        rms = torch.rsqrt(variance + self.epsilon)
-        return x * rms * self.weights
+        mean_square = x.pow(2).mean(dim= - 1, keepdim =True)
+        rms = torch.sqrt(mean_square + self.epsilon)
+        return (x / rms) * self.weights
 ```
 
-RMSNorm Class initializes epsilon and learnable parameters(weights) of $d_{model}$ shape with ones as RMS Norm is calculated along the last dimension$(d_{model}$)  of the Vector x. 
-torch.ones() creates a tensor but that tensor is not included as parameters of the model when the model.to("cuda") is applied all the parameters of the model goes to GPU. Tensor still says in the same CPU, nn.Parameter helps the tensors to goes to the GPU.
+The RMSNorm class initializes epsilon and learnable parameters (weights) of size $d_{\text{model}}$ filled with ones, since RMSNorm is calculated along the last dimension ($d_{\text{model}}$) of the input $x$. While torch.ones() creates a plain tensor, PyTorch does not automatically register it as part of the model. Wrapping it in nn.Parameter registers the tensor inside model.parameters() so the optimizer updates it during backpropagation (requires_grad=True by default), state_dict() saves it during checkpointing, and calling model.to("cuda") moves it to the GPU along with the rest of the model.
 
-Variance(mean of the squares) is calculated along the last dimension(d_model) which typically results in a $(batch \space size , sequence \space length)$. Keepdims = True helps to return a dimension of $(batch \space size , sequence \space length , d_{model})$ where the calculated variance is repeated across the last dimension. Dimension is preserved to match the further operations with x.
+The mean of the squares is calculated along the last dimension ($d_{\text{model}}$), which normally collapses that dimension. Setting keepdim=True preserves the original dimensions, allowing PyTorch to broadcast for future calculations.
 
-rsqrt - Reciprocal Square Root, which is the inverse of the square root of a number. Here the calculated variance is in the inverse of a square root where epsilon is a tiny value which is used to handle the division by zero(sqrt of variance might be zero) error.
+torch.sqrt takes the square root of the mean square plus epsilon, where epsilon acts as a tiny safeguard against dividing by zero if all values in a vector happen to be zero, and the values in $x$ are scaled by the RMS value and the weights.
 
 ## Mixture of Experts
-Traditional LLM's uses a single Feed Forward Neural Network(Expansion Contraction) block which projects the context vector in a higher dimension(4x) and down project it back to the original dimension. It helps to learn in a higher dimension and carry forward the information back to the original dimension. 
+Traditional LLMs use a single Feed Forward Neural Network(Expansion Contraction) block, which projects the context vector in a higher dimension (commonly 4x) and down projects it back to the original dimension. It helps the model learn richer representations in a higher-dimensional space and carry that information back to the original dimension.
 
-Frontier labs inherited the Router Expert Concepts from 1995 research paper and build the Mixture of Experts. Instead of a single FFNN why not have a Multiple FFNN each FFNN is specialized in a domain and handles the context well. It is the Mixture of Experts where the individual FFNN is called as Expert and the one which knows what context should go to which experts is referred as Router.
+Frontier labs inherited the router-expert concepts from 1990s research papers and built the Mixture of Experts. Instead of a single FFNN, why not have multiple FFNNs, where each FFNN specializes in distinct patterns or sub-contexts and handles the context well. In Mixture of Experts, where each individual FFNN is called an Expert, and the component that knows which vector should go to which experts is referred to as the Router.
 ![](Pasted%20image%2020261118190859.png)
 
-Researchers decided to use a combination of a expert with general knowledge and a expert with specialized knowledge which leads to shared expert. In Shared Expert, some experts always process the task regardless of the router's selection and the results of Top K Router Experts and shared expert's are combined and proceed to the next layer.
+Researchers decided to combine experts with general knowledge and experts with specialized knowledge, which led to the **shared expert** design. With shared experts, certain experts always process every token regardless of the router's selection, and the outputs of the shared experts and routed experts are added together so both general and specialized contributions form the final representation.
 ![](Pasted%20image%2020261118191036.png)
 
-Mixture of Experts has been used by LLM's like Mistral 8 x 7b , Deepseek v3.
-Deepseek v3 has popularized the Mixture of Experts in 2025 and after that many Frontier Labs have MoE as a default component in their LLM Architectures with some variations.
+Mixture of Experts has been used by LLMs such as Mistral 8x7B and DeepSeek-V3. DeepSeek-V3 popularized Mixture of Experts in 2025, and since then many frontier labs have adopted MoE as a default component in their LLM architectures with various modifications.
 
-Sarvam has did a fantastic job in the routing mechanism by introducing Grouping Mechanism. Instead of selecting top k experts from the available experts. Sarvam groups the experts first and among the groups the top n experts's sum is used to rank the groups. Top K groups are selected for next process of routing. Now the router can choose only among the selected groups. let's say you want to pick a diamond card from the deck of 52 cards. Grouping's Top K helps you to pick a card from only red cards of 26 which gives a higher probability. Grouping's Top K helps to pick a router which is more qualified for this context.
-The following images illustrates the Grouping Mechanism.
+Sarvam has done a great job in the routing mechanism by introducing a grouping mechanism. Instead of selecting top-$k$ experts from all available experts, Sarvam groups the experts first. Within each group, the sum of the top-$n$ experts ranks the groups, and the top-$k$ groups are selected for the next step of routing. Now the router can choose only among the selected groups. Let's say you want to pick a diamond card from a deck of 52 cards. Grouping's top-$k$ helps you pick a card from only the 26 red cards, which gives a higher chance. Grouping's top-$k$ helps pick experts that fit this context better.
+
 ![](Pasted%20image%2020261118190947.png)
-After selecting the groups all the experts in the selected group are common expert available for the router. There is no bias of choosing a expert from a group which has higher ranking based on the Top K Experts Sum. All Experts are considered as individual expert which doesn't have any group influence. Experts in the top group might not be selected by the router at this stage.
-
+After selecting the groups, all experts in the selected groups are available to the router. Every expert in those selected groups is considered as an individual expert and gets the chance to be picked by the router.
 ![](Pasted%20image%2020261118191011.png)
 
-Experts are nothing but a Feed Forward Neural Network as you can see in the below picture.
+Experts are feed-forward neural networks, as you can see in the picture below.
 ![](Pasted%20image%2020261118191610.png)
-Let's look deep into the Expert's FFNN Configuration. what's inside the Expert.
+Let's look closely at the expert's FFNN setup and see what is inside the expert.
 ![](Pasted%20image%2020261118191633.png)
 
-Context Vector $(sequence \space length * d_{model})$ which passes through two different Linear layers each process them to project in higher dimension $(d_{model} * intermediate \space size)$ where one layer has activation SiLU and the other one doesn't have any activation. the output of the two linear layers are added together it Provides a combination of non linearity(activation) and linearity which produces an output of $(sequence \space length * intermediate \space size)$ which is then down projected with a linear layer $(intermediate \space size * d_{model})$ which extracts the information projected in the higher dimension and represent in the same input dimension and the resultant output as ${sequence \space length * d_{model}}$ .
+A context vector of shape $(\text{sequence length} \times d_{\text{model}})$ passes through two linear layers (`gate` and `up_proj`) that each project it into a higher dimension (`intermediate_size`). One branch (`gate`) goes through a `SiLU` activation while the other (`up_proj`) has no activation. The `SiLU` output and the `up_proj` output are multiplied together, combining non-linear gating with the projected features into a tensor of shape $(\text{sequence length} \times \text{intermediate\_size})$. Finally, `down_proj` maps that higher-dimensional result back to `d_model`, giving an output of shape $(\text{sequence length} \times d_{\text{model}})$.
 ### Code
 ```python
 # MLP - FFNN
@@ -398,6 +423,7 @@ group scores $(num \space tokens, n \space groups)$ contains the sum of top k ex
 
 Top K groups are selected from the group scores which are computed on each group's topk expert's sum. The Purpose of this grouping mechanism is to select a group of experts which are more suited for the context vector rather than having all the experts. 
 To Perform that we know have the top k groups so now we have to neglect the experts of the other groups, To do that, group_mask is created where it is initialized as zeros with the shape of group scores which is $(num \space tokens, n \space groups)$. Scatter function in pytorch fills the value in the src tensor on the specified values. topk_group_idx contains the indices of top_k groups filling 1 in the place on those indices make the group_mask makes it contains 1 on topk groups and 0 on other groups.
+
 To convert back it into experts back the unsqueeze function add a dimension at specificied dimension(-1) which makes it as $(num \space tokens, n \space groups,1)$.  
 Expand Function expands the tensor as many times as specified. (num_tokens,self.n_groups,self.num_experts//self.n_groups) makes to expands in the last dimension where the 0 and 1st index are same, 2nd index is expanded as specified so the experts in the groups contains the same values as a group. Experts are still grouped , let's reshape to get back to individual experts$(num \space tokens, num\space experts)$.
 masked_fill function fills with the boolean value of score mask which sets the non Top K group's expert to negative infinity.
@@ -456,22 +482,22 @@ Mixture of Experts is one of the concept which is easier in theory and somewhat 
 
 
 ## Transformer Block
-
-Let's assemble the Attention Mechanism, Mixture of Experts, RoPE and Normalizations to form the Transformer Block. 
+Let's assemble the attention mechanism, Mixture of Experts, RoPE, and normalizations to form the Transformer block.
 ```python
 class SarvamTransformerBlock(nn.Module):
     def __init__(self, config: TransformerConfig):
         super().__init__()
         self.input_layernorm = RMSNorm(config.d_model, config.rms_norm_eps)
         self.attn = SarvamGroupedQueryAttention(config=config)
-        self.post_attention_layernorm = RMSNorm(config.d_model,config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(config.d_model, config.rms_norm_eps)
         self.moe = SarvamMixtureofExperts(config=config)
 
-    def forward(self,x,pos,attn):
+    def forward(self, x, position_embedding, attn_mask):
         residual = x
         x = self.input_layernorm(x)
-        x = self.attn(x,pos,attn)
+        x = self.attn(x, position_embedding, attn_mask)
         x = x + residual
+
         residual = x
         x = self.post_attention_layernorm(x)
         x = self.moe(x)
@@ -479,39 +505,38 @@ class SarvamTransformerBlock(nn.Module):
         return x
 ```
 
-> All the ARM(AutoRegressive Model) architecture LLM's uses transformer's decoder block as their main block. But i personally feel to name it as decoder block or decoder layer but all the major Frontier Labs uses Transformer Block as the name. But when i see sarvam they have given more importance to variable naming such as using this Block as DecodeLayer and mentioning x as hidden_states, causal lm and many more. I respect Sarvam's naming conventions but TransformerBlock has been more general so i stick to the general term.
+> I appreciate Sarvam's clear and deliberate naming conventions in its codebase, though here I am following a generalized version of naming so the structure stays familiar and easy to generalize across other LLM Architectures.
 
-RMSNorm is initialized separately so that the input_layernorm and post_attention_layernorm has different weights and have more control instead of normalizing with a same weight.
+`input_layernorm` and `post_attention_layernorm` are initialized as separate `RMSNorm` layers so each has its own learnable weights and independent control rather than sharing weights. Residual connections, introduced in ResNet in 2015, help stabilize gradient flow across deep networks as representations pass through many stacked blocks.
 
-Residual Connection is introduced in the ResNet architecture in 2015 to handle the vanishing gradient. As Transformer Block has many layers of processing, residual connection is needed to handle the vanishing gradient.  
-
-The Input x is stored in a variable for residual connection and passes through the input_layernorm to normalize it and passes through the attention block(GQA) along with the position information which is used in RoPE and attn_mask for causal masking. Context Vector from x is added with residual connection and then it is stored for next layer of residual connection and goes to the post_attention_layernorm to normalize the attention values and passes through the Mixture of Experts and then adds the residual values and goes to the next layer of TransformerBlock.
-
+The input `x` is stored in a variable for the residual connection, normalized through `input_layernorm`, and passed into the attention block (GQA) along with position information for RoPE and `attn_mask` for causal masking. The resulting output from `x` is added to the residual and saved for the next residual connection, then normalized through `post_attention_layernorm`, passed through the Mixture of Experts, and combined with the residual values before moving to the next `TransformerBlock`.
 ## SarvamCausalLM
 
 ```python
 class SarvamCausalLM(nn.Module):
-    def __init__(self,config: TransformerConfig):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.embeddings = nn.Embedding(config.vocab_size,config.d_model)
+        self.embeddings = nn.Embedding(config.vocab_size, config.d_model)
         self.rope = SarvamRotaryPositionalEmbedding(config)
         self.blocks = nn.ModuleList(
-                    [SarvamTransformerBlock(config) for _ in range(19)]
-                )
-        self.norm = RMSNorm(config.d_model,config.rms_norm_eps)
-        self.lm_head = nn.Linear(config.d_model,config.vocab_size,bias = False)
+            [SarvamTransformerBlock(config) for _ in range(config.n_layers)]
+        )
+        self.norm = RMSNorm(config.d_model, config.rms_norm_eps)
+        self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
-    def causal_mask(self,S: int,device):
-        mask = torch.triu(torch.ones(S,S,device = device,dtype = torch.bool),diagonal=1)
-        return torch.zeros(S,S,device=device).masked_fill(mask,float('-inf'))
+    def causal_mask(self, seq_len: int, device):
+        mask = torch.triu(torch.ones(seq_len, seq_len, device=device, dtype=torch.bool), diagonal=1)
+        return torch.zeros(seq_len, seq_len, device=device).masked_fill(mask, float("-inf"))
 
-    def forward(self,x):
-        B,S,D = x.shape
-        x = self.embed(x)
-        position_embedding = self.rope(x)  
-        mask = self.causal_mask(S,x.device)
+    def forward(self, input_ids):
+        batch_size, seq_len = input_ids.shape
+        x = self.embeddings(input_ids)
+        position_embedding = self.rope(x)
+        attn_mask = self.causal_mask(seq_len, x.device)
+
         for block in self.blocks:
-            x = block(x,position_embedding,mask)
+            x = block(x, position_embedding, attn_mask)
+  
         x = self.norm(x)
         logits = self.lm_head(x)
         return logits
@@ -519,8 +544,9 @@ class SarvamCausalLM(nn.Module):
 
 SarvamCausalLM get the input tokens ids and then the embeddings
 
-rope will give the positional embedding(sin and cos) for the position and causal mask is a 2D tensor which is filled with negative inf on future positions which makes sure that the Attention Mechanism can only look at the previous tokens not the future tokens.
-The Input X along with positional_embedding and causal_mask is passed to the transformer block which process the x on multiple transformer blocks. After going through the transformer block it is then normalized using RMSNorm and the lm_head which projects the context vector to give the weights for each vector in the vocabulary and then predicts the next vector. The ARM(Auto Regressive Model) continues to predict the next tokens.
+`self.embeddings` converts `input_ids` into dense vectors so the model can process them. `self.rope` provides position information, and `causal_mask` sets future positions to negative infinity so attention only attends to earlier tokens and cannot look ahead at future ones.
+
+The representation(x), `position_embedding`, and `attn_mask` pass through multiple `config.n_layers` blocks. Then `self.norm` normalizes the representation to keep values stable before projection, and `self.lm_head` maps it to vocabulary `logits` so the autoregressive model can score candidate tokens and predict the next token across a series of prediction steps as the sequence is generated.
 
 For Complete Code, [AI-Architectures-Foundry](https://github.com/PARTHIBAN-007/AI-Architectures-Foundry/blob/main/Sarvam/sarvam_30B.py).  
 For Official Code and Documentation, [Sarvam's Hugging Face](https://huggingface.co/sarvamai/sarvam-30b/tree/main).

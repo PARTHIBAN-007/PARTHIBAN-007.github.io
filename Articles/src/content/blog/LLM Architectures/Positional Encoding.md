@@ -26,12 +26,11 @@ Ex: Sentence “Dog chased another dog”. The text is tokenized using a tokeniz
 In practice, an LLM's context length is determined by the maximum sequence length used during training and the positional encoding mechanism. For learned positional embeddings, the positional embedding table defines the maximum supported position. Sinusoidal positional encodings can be computed for arbitrary positions, but models often generalize poorly beyond the context lengths seen during training.
 
 $$
-
-PE_{\text({pos,2i})} = \sin({\frac{pos}{10000^{\frac{2i}{d_{\text{model}}}}}})  
+\text{PE}_{(\text{pos}, 2i)} = \sin\left(\frac{\text{pos}}{10000^{\frac{2i}{d_{\text{model}}}}}\right)
 $$
 
-$$  
-PE_{\text({pos,2i+1})} = \cos({\frac{pos}{10000^{\frac{2i}{d_{\text{model}}}}}})  
+$$
+\text{PE}_{(\text{pos}, 2i+1)} = \cos\left(\frac{\text{pos}}{10000^{\frac{2i}{d_{\text{model}}}}}\right)
 $$
 
 where,
@@ -58,24 +57,24 @@ Rotary Positional Encoding was introduced to change the angle of token embedding
 
 Euler’s Formula:
 
-$$  
-e^{i\theta} = \cos(\theta) + i\sin(\theta)  
+$$
+e^{i\theta} = \cos(\theta) + i\sin(\theta)
 $$
 
 Euler’s Rotation Matrix:
 
-$$  
-R(θ) = \begin{bmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{bmatrix}  
+$$
+R(\theta) = \begin{bmatrix} \cos(\theta) & -\sin(\theta) \\ \sin(\theta) & \cos(\theta) \end{bmatrix}
 $$
 
-let’s consider an example $v = \begin{bmatrix} 1 \\ -2 \end{bmatrix}$ and $\theta = 90^\degree$
+let’s consider an example $v = \begin{bmatrix} 1 \\ -2 \end{bmatrix}$ and $\theta = 90^\circ$:
 
-$$  
-then, R(90^\degree) = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}  
+$$
+\text{then, } R(90^\circ) = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}
 $$
 
-$$  
-R(90^\circ)v = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix} \begin{bmatrix} 1 \\ -2 \end{bmatrix} = \begin{bmatrix} 2\\ 1 \end{bmatrix}  
+$$
+R(90^\circ)v = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix} \begin{bmatrix} 1 \\ -2 \end{bmatrix} = \begin{bmatrix} 2 \\ 1 \end{bmatrix}
 $$
 
 The rotation matrix performs the rotation. RoPE only changes the angle, not the magnitude. Let’s check the magnitude of the vector. Magnitude v (1, -2) = $\sqrt{1^2 + (-2)^2} = \sqrt{5}$ and v (2, 1) = $\sqrt{2^2 + 1^2} = \sqrt{5}$. The vector has the same magnitude before and after rotation.

@@ -20,6 +20,26 @@ const {
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <script is:inline>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true,
+        },
+        options: {
+          skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+        },
+        chtml: {
+          scale: 1,
+        },
+      };
+    </script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
   </head>
 
   <body>
@@ -28,8 +48,6 @@ const {
 </html>
 
 <style is:global>
-  @import 'katex/dist/katex.min.css';
-
   :root {
     --color-bg: #0a0a0a;
     --color-bg-elevated: #111111;
@@ -450,11 +468,18 @@ const {
     margin: 3rem 0;
   }
 
-  .article-body .katex-display {
+  mjx-container[display="true"] {
+    display: block !important;
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
+    margin: 1.5rem 0 !important;
     padding: .5rem 0;
+    text-align: center;
+  }
+
+  mjx-container:not([display="true"]) {
+    display: inline-block;
   }
 
   /* PREVIOUS / NEXT */
